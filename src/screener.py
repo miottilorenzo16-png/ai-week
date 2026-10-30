@@ -1,7 +1,6 @@
 """Download and screen a broad universe of CAC 40 stocks."""
 from __future__ import annotations
 
-from itertools import combinations
 import itertools
 
 import numpy as np
@@ -46,11 +45,20 @@ def fetch_universe_data(tickers, start_date):
     if downloaded.empty:
         raise ValueError("Yahoo Finance returned no price data.")
 
-    # Recent yfinance versions return MultiIndex columns for multiple symbols.
     if isinstance(downloaded.columns, pd.MultiIndex):
-        if "Close" not in downloaded.columns.get_level_values(0):
+        # Handle either yfinance MultiIndex order: (Price, Ticker) or
+        # (Ticker, Price).
+        close_level = next(
+            (
+                level
+                for level in range(downloaded.columns.nlevels)
+                if "Close" in downloaded.columns.get_level_values(level)
+            ),
+            None,
+        )
+        if close_level is None:
             raise ValueError("Yahoo Finance response does not contain Close prices.")
-        close = downloaded["Close"].copy()
+        close = downloaded.xs("Close", axis=1, level=close_level).copy()
     elif "Close" in downloaded.columns:
         close = downloaded[["Close"]].copy()
         close.columns = requested_tickers[:1]
@@ -58,8 +66,9 @@ def fetch_universe_data(tickers, start_date):
         raise ValueError("Yahoo Finance response does not contain Close prices.")
 
     # Keep requested ordering and omit symbols Yahoo did not return.
-    close = close.reindex(columns=[ticker for ticker in requested_tickers if ticker in close.columns])
-    if close.empty:
+    returned_tickers = [ticker for ticker in requested_tickers if ticker in close.columns]
+    close = close.reindex(columns=returned_tickers)
+    if close.empty or close.shape[1] == 0:
         raise ValueError("No requested tickers returned Close price data.")
 
     missing_fraction = close.isna().mean()
