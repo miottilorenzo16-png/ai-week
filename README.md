@@ -1,57 +1,62 @@
-# PairLab: BNP Paribas × Société Générale
+# BNP Paribas × Société Générale Pairs Trading
 
-A small quantitative-finance hackathon prototype for exploring a pairs-trading idea with two Paris-listed banks.
+A Python research repository for exploring a statistical-arbitrage idea between two Paris-listed bank stocks: BNP Paribas (BNP.PA) and Société Générale (GLE.PA).
 
-## What it does
+## Repository structure
 
-- Downloads real daily adjusted closing prices for BNP Paribas (BNP.PA) and Société Générale (GLE.PA).
-- Estimates a hedge ratio from log prices and runs an Engle–Granger cointegration test.
-- Calculates a rolling spread z-score and visualizes simple entry/exit rules.
-- Runs a small paper backtest with a user-set transaction-cost assumption.
-- Optionally uses OpenAI to explain the displayed calculations in plain language.
+```
+.
+├── notebooks/
+│   └── pairs_research.ipynb
+├── src/
+│   ├── __init__.py
+│   ├── analytics.py
+│   ├── backtest.py
+│   └── data.py
+├── .gitignore
+├── README.md
+└── requirements.txt
+```
 
-The model only explains the computed results. The price data, hedge ratio, test, signals and backtest are calculated by code.
+## Setup
 
-## Run it on macOS
-
-1. Install Python 3.10 or newer.
-2. Download the repository from GitHub with **Code → Download ZIP**, then open Terminal in the unzipped `ai-week` folder.
-3. Create an environment and install the packages:
+Requires Python 3.10 or newer.
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-4. Start the app:
+Open `notebooks/pairs_research.ipynb` in Jupyter, or run the analysis from Python:
 
-```bash
-streamlit run app.py
+```python
+from src.data import download_adjusted_closes
+from src.analytics import fit_hedge_ratio, engle_granger_test, rolling_zscore
+from src.backtest import backtest_pair, performance_summary
+
+prices = download_adjusted_closes(start="2021-01-01")
+fit = fit_hedge_ratio(prices)
+test = engle_granger_test(prices)
+zscore = rolling_zscore(fit["spread"], window=60)
+result = backtest_pair(prices, zscore, fit["beta"])
+summary = performance_summary(result)
+print(test)
+print(summary)
 ```
 
-The app opens in your browser. Price data works without an OpenAI key.
+## Research workflow
 
-## Optional OpenAI explanation
+1. Download daily adjusted closes and align the two price series by trading date.
+2. Estimate a fixed hedge ratio by regressing log BNP Paribas prices on log Société Générale prices.
+3. Run the Engle–Granger cointegration test on log prices.
+4. Calculate a trailing spread z-score.
+5. Simulate a simple mean-reversion rule with prior-close signals and an estimated transaction cost.
+6. Optionally estimate a time-varying hedge ratio with a Kalman filter.
 
-To enable the **Explain this result with OpenAI** button:
+## Important limitations
 
-1. Copy `.env.example` to `.env`.
-2. Put your API key after `OPENAI_API_KEY=`.
-3. Keep `.env` private. It is excluded by `.gitignore`; never paste the key into GitHub or chat.
-4. Restart the app.
+This is an educational research scaffold, not a validated trading strategy or investment advice. Cointegration in a selected historical window does not establish future stability or profitability. The basic backtest omits borrow availability and fees, market impact, taxes, and realistic order execution. Avoid choosing parameters based on the same period used to report results; use a chronological out-of-sample period before drawing conclusions.
 
-The optional summary uses the Responses API and GPT-6 Luna. API access and billing depend on the account attached to the key.
-
-## Method and caveats
-
-Prices are fetched using the community-maintained yfinance package from Yahoo Finance. The app uses adjusted closes, aligns both series to common trading dates, regresses log BNP price on log Société Générale price, and applies the Engle–Granger test. A rolling z-score then drives an illustrative mean-reversion rule. Signals use the previous close; the backtest includes a simple estimated transaction cost.
-
-This is an educational prototype, not a validated strategy or investment advice. A low cointegration p-value in one historical window does not guarantee the relationship will persist or that the backtest will work out of sample. The simple backtest omits borrow fees, market impact, taxes, and several execution details. Yahoo/yfinance availability may vary.
-
-## Sources
-
-- [BNP Paribas investor information](https://invest.bnpparibas/en/bnp-paribas-share)
-- [Société Générale investor information](https://investors.societegenerale.com/en/financial-non-financial-information/share-performance/share-capital)
-- [yfinance download documentation](https://ranaroussi.github.io/yfinance/reference/api/yfinance.download.html)
-- [OpenAI API quickstart](https://developers.openai.com/api/docs/quickstart)
+Market data are retrieved through the community-maintained yfinance package from Yahoo Finance. Availability and terms may change. See the [yfinance download documentation](https://ranaroussi.github.io/yfinance/reference/api/yfinance.download.html).
