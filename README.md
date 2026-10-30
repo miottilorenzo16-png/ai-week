@@ -7,6 +7,7 @@ A Python research repository for exploring a statistical-arbitrage idea between 
 ```
 .
 ├── notebooks/
+│   ├── full_pairs_pipeline.ipynb
 │   └── pairs_research.ipynb
 ├── src/
 │   ├── __init__.py
@@ -29,7 +30,7 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Open `notebooks/pairs_research.ipynb` in Jupyter, or run the analysis from Python:
+Open `notebooks/full_pairs_pipeline.ipynb` in Jupyter for the complete three-chart pipeline, or open `notebooks/pairs_research.ipynb` for the shorter exploratory workflow. You can also run the analysis from Python:
 
 ```python
 from src.data import download_adjusted_closes
