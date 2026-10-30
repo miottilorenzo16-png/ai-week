@@ -51,14 +51,24 @@ def fetch_pairs_data(
         raise ValueError("Both ticker symbols are required.")
     if ticker1 == ticker2:
         raise ValueError("ticker1 and ticker2 must be different.")
-    if not start_date or not end_date or start_date >= end_date:
-        raise ValueError("Provide valid dates with start_date earlier than end_date.")
+    if not start_date or not end_date:
+        raise ValueError("Both start_date and end_date are required.")
+    try:
+        start = pd.Timestamp(start_date).normalize()
+        end = pd.Timestamp(end_date).normalize()
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Dates must be valid date strings such as YYYY-MM-DD.") from exc
+    if start >= end:
+        raise ValueError("start_date must be earlier than end_date.")
 
+    # yfinance treats its end parameter as exclusive; add one day so the
+    # requested end_date is included in the returned observations.
+    end_exclusive = (end + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
     adjusted_closes = []
     for ticker in (ticker1, ticker2):
         history = yf.Ticker(ticker).history(
             start=start_date,
-            end=end_date,
+            end=end_exclusive,
             interval="1d",
             auto_adjust=True,
             actions=False,
