@@ -5,3 +5,5 @@ statsmodels>=0.14
 matplotlib>=3.9
 pykalman>=0.10
 jupyter>=1.0
+streamlit>=1.40
+plotly>=5.24
