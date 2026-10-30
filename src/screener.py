@@ -128,3 +128,24 @@ def scan_cointegrated_pairs(prices, p_value_threshold=0.05):
     return pd.DataFrame(results, columns=columns).sort_values(
         "p_value", ascending=True, ignore_index=True
     )
+
+
+
+if __name__ == "__main__":
+    universe_prices = fetch_universe_data(CAC40_TICKERS, start_date="2021-01-01")
+    cointegrated_pairs = scan_cointegrated_pairs(universe_prices)
+
+    print("\nTop 10 cointegrated CAC 40 pairs")
+    if cointegrated_pairs.empty:
+        print("No pairs found below the p-value threshold.")
+    else:
+        print(
+            cointegrated_pairs.head(10).to_string(
+                index=False,
+                formatters={
+                    "p_value": "{:.4g}".format,
+                    "test_statistic": "{:.4f}".format,
+                    "beta": "{:.4f}".format,
+                },
+            )
+        )
