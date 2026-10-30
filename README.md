@@ -1,33 +1,57 @@
-# Nasdaq Signal Lab
+# PairLab: BNP Paribas × Société Générale
 
-A hackathon prototype exploring one question: **does the sentiment of financial headlines move with the Nasdaq-100's next-day return?**
+A small quantitative-finance hackathon prototype for exploring a pairs-trading idea with two Paris-listed banks.
 
-## Open the demo
+## What it does
 
-Open [index.html](./index.html) in a browser. It is a self-contained page with no installation or API key required.
+- Downloads real daily adjusted closing prices for BNP Paribas (BNP.PA) and Société Générale (GLE.PA).
+- Estimates a hedge ratio from log prices and runs an Engle–Granger cointegration test.
+- Calculates a rolling spread z-score and visualizes simple entry/exit rules.
+- Runs a small paper backtest with a user-set transaction-cost assumption.
+- Optionally uses OpenAI to explain the displayed calculations in plain language.
 
-## What is in this prototype
+The model only explains the computed results. The price data, hedge ratio, test, signals and backtest are calculated by code.
 
-- An interactive-style research dashboard for the Nasdaq-100.
-- A sample headline table with sentiment labels and next-day returns.
-- A scatter plot and Pearson correlation calculation.
-- A short explanation of the experiment and its limitations.
+## Run it on macOS
 
-## Important: the current data is fictional
+1. Install Python 3.10 or newer.
+2. Download the repository from GitHub with **Code → Download ZIP**, then open Terminal in the unzipped `ai-week` folder.
+3. Create an environment and install the packages:
 
-Every headline, sentiment score, and market return in the page is invented for demonstrating the interface. The displayed correlation is calculated from those invented rows and has no real-world meaning. The current version does not call an AI model, fetch live data, or test a trading strategy.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-## Hackathon build plan
+4. Start the app:
 
-1. Replace the sample rows with a small, documented dataset of real headlines and Nasdaq-100 daily prices.
-2. Use an AI model to label each headline as positive, neutral, or negative and return a score with a brief reason.
-3. Match each headline to the next trading day's index return, using timestamps carefully to avoid look-ahead bias.
-4. Compare the results with a simple baseline and explain that correlation does not prove prediction or causality.
+```bash
+streamlit run app.py
+```
 
-Keep the first live version small: one index, a manageable date range, one consistent news source, and one clear baseline.
+The app opens in your browser. Price data works without an OpenAI key.
 
-## Metric
+## Optional OpenAI explanation
 
-For each observation, sentiment is a score from -1 to +1. Next-day return is the percent change from the prior close to the next trading day's close. The dashboard computes Pearson correlation between the two columns.
+To enable the **Explain this result with OpenAI** button:
 
-Do not present the prototype as investment advice or a reliable buy/sell signal.
+1. Copy `.env.example` to `.env`.
+2. Put your API key after `OPENAI_API_KEY=`.
+3. Keep `.env` private. It is excluded by `.gitignore`; never paste the key into GitHub or chat.
+4. Restart the app.
+
+The optional summary uses the Responses API and GPT-6 Luna. API access and billing depend on the account attached to the key.
+
+## Method and caveats
+
+Prices are fetched using the community-maintained yfinance package from Yahoo Finance. The app uses adjusted closes, aligns both series to common trading dates, regresses log BNP price on log Société Générale price, and applies the Engle–Granger test. A rolling z-score then drives an illustrative mean-reversion rule. Signals use the previous close; the backtest includes a simple estimated transaction cost.
+
+This is an educational prototype, not a validated strategy or investment advice. A low cointegration p-value in one historical window does not guarantee the relationship will persist or that the backtest will work out of sample. The simple backtest omits borrow fees, market impact, taxes, and several execution details. Yahoo/yfinance availability may vary.
+
+## Sources
+
+- [BNP Paribas investor information](https://invest.bnpparibas/en/bnp-paribas-share)
+- [Société Générale investor information](https://investors.societegenerale.com/en/financial-non-financial-information/share-performance/share-capital)
+- [yfinance download documentation](https://ranaroussi.github.io/yfinance/reference/api/yfinance.download.html)
+- [OpenAI API quickstart](https://developers.openai.com/api/docs/quickstart)
