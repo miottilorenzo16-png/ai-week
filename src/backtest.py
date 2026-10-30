@@ -2,7 +2,7 @@
 from __future__ import annotations
 import numpy as np
 import pandas as pd
-from typing import Union
+from typing import Optional, Union
 from .data import PAIR_TICKERS
 
 def generate_positions(zscore: pd.Series, entry_z: float = 2.0, exit_z: float = 0.5) -> pd.Series:
@@ -77,6 +77,11 @@ def performance_summary(result: pd.DataFrame) -> dict[str, float]:
         "max_drawdown": float(result["drawdown"].min()),
         "time_in_market": float((result["position"] != 0).mean()),
         "entry_count": float(entries),
+        "stop_loss_triggers": float(
+            result["stop_loss_trigger"].sum()
+            if "stop_loss_trigger" in result.columns
+            else 0
+        ),
     }
 
 
@@ -100,7 +105,10 @@ class PairsBacktester:
         spread when z reaches/falls below it. Set to 0 to exit at zero.
     transaction_fee:
         Fractional cost per unit of turnover. For example, 0.001 is 10 bps.
-        Fees are charged on entry and exit.
+        Fees are charged on entry and exit, including stop-loss exits.
+    stop_loss_z:
+        Stop-loss z-score magnitude. Long spreads exit at z <= -stop_loss_z
+        and short spreads at z >= stop_loss_z. Set to None to disable.
     """
 
     def __init__(
@@ -111,6 +119,7 @@ class PairsBacktester:
         entry_threshold: float = 1.5,
         exit_threshold: float = 0.0,
         transaction_fee: float = 0.001,
+        stop_loss_z: Optional[float] = 3.0,
     ) -> None:
         if prices.shape[1] < 2:
             raise ValueError("prices must contain at least two ticker columns.")
@@ -120,6 +129,8 @@ class PairsBacktester:
             raise ValueError("Require 0 <= exit_threshold < entry_threshold.")
         if transaction_fee < 0:
             raise ValueError("transaction_fee cannot be negative.")
+        if stop_loss_z is not None and stop_loss_z <= entry_threshold:
+            raise ValueError("stop_loss_z must be greater than entry_threshold, or None.")
 
         self.spread_zscore = pd.Series(spread_zscore, name="zscore")
         self.prices = prices.iloc[:, :2].copy()
@@ -128,6 +139,7 @@ class PairsBacktester:
         self.entry_threshold = float(entry_threshold)
         self.exit_threshold = float(exit_threshold)
         self.transaction_fee = float(transaction_fee)
+        self.stop_loss_z = None if stop_loss_z is None else float(stop_loss_z)
 
     def _prepare_inputs(self) -> tuple[pd.DataFrame, pd.Series]:
         frame = self.prices.copy()
@@ -153,9 +165,14 @@ class PairsBacktester:
 
         return frame, beta.astype(float)
 
-    def _make_positions(self, zscore: pd.Series) -> pd.Series:
-        """Create next-session positions from the previous close's z-score."""
+    def _make_positions(
+        self, zscore: pd.Series
+    ) -> tuple[pd.Series, pd.Series]:
+        """Create next-session positions and mark stop-loss exits."""
         positions = pd.Series(0.0, index=zscore.index, name="position")
+        stop_loss_trigger = pd.Series(
+            False, index=zscore.index, name="stop_loss_trigger"
+        )
         state = 0.0
 
         for i in range(1, len(zscore)):
@@ -166,14 +183,28 @@ class PairsBacktester:
                     state = 1.0
                 elif observed_z >= self.entry_threshold:
                     state = -1.0
-            elif state == 1.0 and observed_z >= self.exit_threshold:
-                state = 0.0
-            elif state == -1.0 and observed_z <= self.exit_threshold:
-                state = 0.0
+            elif state == 1.0:
+                if (
+                    self.stop_loss_z is not None
+                    and observed_z <= -self.stop_loss_z
+                ):
+                    state = 0.0
+                    stop_loss_trigger.iloc[i] = True
+                elif observed_z >= self.exit_threshold:
+                    state = 0.0
+            elif state == -1.0:
+                if (
+                    self.stop_loss_z is not None
+                    and observed_z >= self.stop_loss_z
+                ):
+                    state = 0.0
+                    stop_loss_trigger.iloc[i] = True
+                elif observed_z <= self.exit_threshold:
+                    state = 0.0
 
             positions.iloc[i] = state
 
-        return positions
+        return positions, stop_loss_trigger
 
     @staticmethod
     def _trade_results(positions: pd.Series, net_returns: pd.Series) -> list[float]:
@@ -202,7 +233,7 @@ class PairsBacktester:
         frame, beta = self._prepare_inputs()
         prices = frame[self.tickers]
         zscore = frame["zscore"]
-        positions = self._make_positions(zscore)
+        positions, stop_loss_trigger = self._make_positions(zscore)
 
         simple_returns = prices.pct_change().fillna(0.0)
         beta_for_return = beta.shift(1)
@@ -229,6 +260,7 @@ class PairsBacktester:
                 "zscore": zscore,
                 "hedge_ratio": beta,
                 "position": positions,
+                "stop_loss_trigger": stop_loss_trigger,
                 "spread_return": gross_pair_return,
                 "turnover": turnover,
                 "transaction_cost": transaction_cost,
@@ -257,5 +289,6 @@ class PairsBacktester:
             "max_drawdown": float(drawdown.min()),
             "win_rate": win_rate,
             "total_trades": int(len(trade_returns)),
+            "stop_loss_triggers": int(stop_loss_trigger.sum()),
         }
         return summary, pnl
