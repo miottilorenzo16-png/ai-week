@@ -16,10 +16,10 @@ CAC40_TICKERS = [
     "BNP.PA", "MC.PA", "OR.PA", "SAN.PA", "CS.PA",
     "DG.PA", "EL.PA", "GLE.PA", "ENGI.PA", "RMS.PA",
     "BN.PA", "LR.PA", "SGO.PA", "STMPA.PA", "ORA.PA",
-    "MT.PA", "ML.PA", "PUB.PA", "HO.PA", "VIE.PA",
+    "MT.AS", "ML.PA", "PUB.PA", "HO.PA", "VIE.PA",
     "KER.PA", "CAP.PA", "ACA.PA", "DSY.PA", "RI.PA",
     "ENX.PA", "CA.PA", "URW.PA", "BVI.PA", "EN.PA",
-    "ERF.PA", "STLA.PA", "AC.PA", "FGR.PA", "RNO.PA",
+    "ERF.PA", "STLAP.PA", "AC.PA", "FGR.PA", "RNO.PA",
 ]
 
 
