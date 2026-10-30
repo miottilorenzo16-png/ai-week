@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <title>Scenario Lens — Portfolio stress testing</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0b1020;--panel:#111a2d;--panel2:#151f35;--line:#25314a;--text:#eef3ff;--muted:#93a2bd;--mint:#73e0bd;--red:#ff8191;--blue:#8aaeff;--gold:#ffc978}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 80% -15%,#1b2b4a 0,transparent 45%),var(--bg);color:var(--text);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .wrap{max-width:1160px;margin:auto;padding:34px 24px 64px}.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:38px}.brand{display:flex;align-items:center;gap:11px;font-weight:700;letter-spacing:.02em}.mark{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(145deg,#79e1c0,#8aaeff);color:#10182a;font-weight:900}.badge{border:1px solid #34425d;border-radius:999px;padding:6px 11px;color:#bdc9de;font-size:12px}
+    .hero{margin-bottom:28px}.eyebrow{color:var(--mint);font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase}.hero h1{font-size:clamp(32px,5vw,52px);line-height:1.06;letter-spacing:-.045em;margin:12px 0}.hero p{margin:0;color:var(--muted);max-width:690px;font-size:16px}
+    .scenarios{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:28px 0 18px}.scenario{cursor:pointer;text-align:left;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;transition:.18s}.scenario:hover{transform:translateY(-2px);border-color:#526887}.scenario.active{background:#16243a;border-color:var(--mint);box-shadow:0 0 0 1px #73e0bd22}.scenario .icon{font-size:19px}.scenario strong{display:block;margin:8px 0 2px;font-size:14px}.scenario span:last-child{display:block;color:var(--muted);font-size:12px}
+    .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}.card{background:linear-gradient(160deg,#121c30,#10182a);border:1px solid var(--line);border-radius:17px;padding:21px}.card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:17px}.card h2{font-size:16px;margin:0;letter-spacing:-.015em}.sub{font-size:12px;color:var(--muted)}
+    .metric{background:#0d1526;border:1px solid #202c43;border-radius:14px;padding:17px;margin-bottom:17px}.metric-label{font-size:12px;color:var(--muted)}.metric-value{font-size:36px;font-weight:730;letter-spacing:-.04em;margin:4px 0 0}.metric-note{font-size:12px;color:var(--muted);margin-top:2px}.positive{color:var(--mint)}.negative{color:var(--red)}
+    .rows{display:flex;flex-direction:column;gap:13px}.rowtop{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:6px}.ticker{font-weight:700}.company{color:var(--muted);font-weight:400;margin-left:7px}.bar{height:7px;border-radius:9px;background:#26334c;overflow:hidden}.fill{height:100%;border-radius:9px;background:linear-gradient(90deg,#74dfbd,#95b7ff);transition:width .35s}.impact{font-variant-numeric:tabular-nums;font-weight:650}.explain{margin-top:16px;border-left:2px solid var(--mint);padding:10px 0 10px 13px;color:#c3cee0;font-size:13px}
+    .holdings{width:100%;border-collapse:collapse;font-size:13px}.holdings th{text-align:left;color:var(--muted);font-weight:500;padding:0 4px 10px}.holdings th:last-child,.holdings td:last-child{text-align:right}.holdings td{padding:11px 4px;border-top:1px solid #202c43}.weight{display:flex;align-items:center;gap:10px}.weight input{width:100%;accent-color:var(--mint)}.pct{width:38px;text-align:right;color:#c7d2e6;font-variant-numeric:tabular-nums}
+    .footer{margin-top:18px;color:#74839d;font-size:11px;line-height:1.55}.footer strong{color:#aab8ce}.reset{border:0;background:none;color:var(--blue);cursor:pointer;font:inherit;font-size:12px}.toast{font-size:12px;color:var(--gold);min-height:17px}
+    @media(max-width:760px){.wrap{padding:22px 15px 40px}.top{margin-bottom:28px}.scenarios{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.card{padding:17px}.metric-value{font-size:32px}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top"><div class="brand"><div class="mark">S</div> SCENARIO LENS</div><div class="badge">EDUCATIONAL PROTOTYPE · NO LIVE DATA</div></header>
+  <section class="hero"><div class="eyebrow">Portfolio stress testing</div><h1>What could a market shock<br>mean for your portfolio?</h1><p>Explore illustrative scenarios, see which holdings drive the result, and inspect the assumptions behind every number.</p></section>
+  <div class="scenarios" id="scenarios" role="group" aria-label="Choose a market scenario"></div>
+  <main class="grid">
+    <section class="card"><div class="card-head"><h2>Portfolio impact</h2><span class="sub" id="scenarioLabel"></span></div><div class="metric"><div class="metric-label">Illustrative portfolio return</div><div class="metric-value" id="totalReturn">—</div><div class="metric-note" id="moneyImpact">—</div></div><div class="card-head"><h2>Largest contributors</h2><span class="sub">weighted scenario impact</span></div><div class="rows" id="contributions"></div><div class="explain" id="explanation"></div></section>
+    <section class="card"><div class="card-head"><h2>Sample portfolio</h2><button class="reset" id="reset">Reset weights</button></div><div class="sub" style="margin:-10px 0 17px">Adjust the weights to explore a different mix. Total weight stays at 100%.</div><table class="holdings"><thead><tr><th>Holding</th><th>Weight</th><th>Scenario shock</th></tr></thead><tbody id="holdings"></tbody></table><div class="toast" id="toast"></div><div class="footer"><strong>Calculation:</strong> portfolio impact = sum of (holding weight × assumed holding shock). This is a simplified scenario illustration, not a forecast. The shocks are invented for the demo and are not calibrated market estimates.</div></section>
+  </main>
+  <p class="footer" style="margin-top:22px">Scenario Lens is a hackathon prototype for learning about portfolio exposures. It does not provide investment advice.</p>
+</div>
+<script>
+const initial=[
+ {ticker:"SAP",name:"Software",weight:25,shocks:{energy:4,rates:-14,growth:-28}},
+ {ticker:"SIE",name:"Industrials",weight:20,shocks:{energy:-3,rates:-10,growth:-20}},
+ {ticker:"ALV",name:"Insurance",weight:20,shocks:{energy:2,rates:5,growth:-18}},
+ {ticker:"SHEL",name:"Energy",weight:15,shocks:{energy:25,rates:-4,growth:-12}},
+ {ticker:"ASML",name:"Semiconductors",weight:20,shocks:{energy:1,rates:-22,growth:-35}}
+];
+const scenarios=[
+ {id:"energy",icon:"⚡",title:"Energy price spike",desc:"Energy shock · illustrative supply disruption"},
+ {id:"rates",icon:"↗",title:"Rates rise by 1%",desc:"Rate shock · financing costs increase"},
+ {id:"growth",icon:"◒",title:"Growth slowdown",desc:"Growth shock · broad demand weakens"}
+];
+let holdings=initial.map(x=>({...x})),selected="energy";
+const fmt=(n)=>((n>0?"+":"")+n.toFixed(1)+"%");
+function calc(){return holdings.map(h=>({...h,shock:h.shocks[selected],contribution:h.weight/100*h.shocks[selected]})).sort((a,b)=>a.contribution-b.contribution)}
+function render(){
+ const scen=scenarios.find(s=>s.id===selected),items=calc(),total=items.reduce((a,x)=>a+x.contribution,0);
+ document.getElementById("scenarios").innerHTML=scenarios.map(s=>'<button class="scenario '+(selected===s.id?"active":"")+'" data-id="'+s.id+'"><span class="icon">'+s.icon+'</span><strong>'+s.title+'</strong><span>'+s.desc+'</span></button>').join("");
+ document.querySelectorAll(".scenario").forEach(b=>b.addEventListener("click",()=>{selected=b.dataset.id;render()}));
+ document.getElementById("scenarioLabel").textContent=scen.title;
+ const tv=document.getElementById("totalReturn");tv.textContent=fmt(total);tv.className="metric-value "+(total<0?"negative":"positive");
+ document.getElementById("moneyImpact").textContent="On a hypothetical €10,000 portfolio: "+(total<0?"−":"+")+"€"+Math.abs(total*100).toFixed(0);
+ const max=Math.max(1,...items.map(x=>Math.abs(x.contribution)));
+ document.getElementById("contributions").innerHTML=items.map(x=>'<div><div class="rowtop"><span><span class="ticker">'+x.ticker+'</span><span class="company">'+x.name+' · '+x.weight+'%</span></span><span class="impact '+(x.contribution<0?"negative":"positive")+'">'+fmt(x.contribution)+'</span></div><div class="bar"><div class="fill" style="width:'+Math.max(5,Math.abs(x.contribution)/max*100)+'%;'+(x.contribution<0?'background:linear-gradient(90deg,#ff8191,#ffc1c8)':'')+'"></div></div></div>').join("");
+ const worst=items[0],best=items[items.length-1],losses=items.filter(x=>x.contribution<0);
+ let msg=total<0?worst.ticker+" is the largest drag, subtracting "+fmt(worst.contribution)+" from the portfolio in this illustrative scenario. ":"The portfolio is positive in this illustrative scenario. ";
+ if(best.contribution>0)msg+=" "+best.ticker+" offsets some of the impact ("+fmt(best.contribution)+"). ";
+ msg+="These results use the assumed shocks shown below; they are not predictions.";
+ document.getElementById("explanation").textContent=msg;
+ document.getElementById("holdings").innerHTML=holdings.map((h,i)=>'<tr><td><strong>'+h.ticker+'</strong><div class="sub">'+h.name+'</div></td><td><div class="weight"><input type="range" min="0" max="100" value="'+h.weight+'" data-index="'+i+'" aria-label="'+h.ticker+' portfolio weight"><span class="pct">'+h.weight+'%</span></div></td><td class="impact '+(h.shocks[selected]<0?"negative":"positive")+'">'+fmt(h.shocks[selected])+'</td></tr>').join("");
+ document.querySelectorAll(".weight input").forEach(input=>input.addEventListener("input",e=>{const i=Number(e.target.dataset.index),v=Number(e.target.value);const old=holdings[i].weight;const other=holdings.filter((_,j)=>j!==i);const oldOther=other.reduce((a,h)=>a+h.weight,0);holdings[i].weight=v;let remain=100-v;if(oldOther>0){other.forEach(h=>h.weight=remain*(h.weight/oldOther))}else{other.forEach(h=>h.weight=remain/other.length)}holdings.forEach(h=>h.weight=Math.round(h.weight*10)/10);const diff=100-holdings.reduce((a,h)=>a+h.weight,0);holdings[holdings.length-1].weight=Math.round((holdings[holdings.length-1].weight+diff)*10)/10;render();}));
+ document.getElementById("toast").textContent="Current weights: "+holdings.reduce((a,h)=>a+h.weight,0).toFixed(1)+"%";
+}
+document.getElementById("reset").addEventListener("click",()=>{holdings=initial.map(x=>({...x}));render()});
+render();
+</script>
+</body>
+</html>
