@@ -65,7 +65,6 @@ def fetch_universe_data(tickers, start_date):
     else:
         raise ValueError("Yahoo Finance response does not contain Close prices.")
 
-    # Keep requested ordering and omit symbols Yahoo did not return.
     returned_tickers = [ticker for ticker in requested_tickers if ticker in close.columns]
     close = close.reindex(columns=returned_tickers)
     if close.empty or close.shape[1] == 0:
@@ -80,3 +79,52 @@ def fetch_universe_data(tickers, start_date):
     close = close.replace([np.inf, -np.inf], np.nan).dropna(axis=1, how="all")
     close.index.name = "Date"
     return close
+
+
+def scan_cointegrated_pairs(prices, p_value_threshold=0.05):
+    """Find price pairs passing the Engle-Granger cointegration test.
+
+    Test statistics and hedge ratios use natural-log prices. The beta is the
+    OLS slope from regressing ticker1 log prices on ticker2 log prices.
+    """
+    if not isinstance(prices, pd.DataFrame):
+        raise TypeError("prices must be a pandas DataFrame.")
+    if prices.shape[1] < 2:
+        raise ValueError("prices must contain at least two ticker columns.")
+    if not 0 < p_value_threshold < 1:
+        raise ValueError("p_value_threshold must be between 0 and 1.")
+
+    results = []
+    for ticker1, ticker2 in itertools.combinations(prices.columns, 2):
+        pair_prices = prices[[ticker1, ticker2]].replace(
+            [np.inf, -np.inf], np.nan
+        ).dropna()
+        if pair_prices.empty or (pair_prices <= 0).any().any():
+            continue
+
+        log_price1 = np.log(pair_prices[ticker1].astype(float))
+        log_price2 = np.log(pair_prices[ticker2].astype(float))
+        if log_price1.nunique() < 2 or log_price2.nunique() < 2:
+            continue
+
+        try:
+            test_statistic, p_value, _ = ts.coint(log_price1, log_price2)
+        except (ValueError, np.linalg.LinAlgError):
+            continue
+
+        if np.isfinite(p_value) and p_value < p_value_threshold:
+            beta = float(np.polyfit(log_price2, log_price1, 1)[0])
+            results.append(
+                {
+                    "ticker1": ticker1,
+                    "ticker2": ticker2,
+                    "p_value": float(p_value),
+                    "test_statistic": float(test_statistic),
+                    "beta": beta,
+                }
+            )
+
+    columns = ["ticker1", "ticker2", "p_value", "test_statistic", "beta"]
+    return pd.DataFrame(results, columns=columns).sort_values(
+        "p_value", ascending=True, ignore_index=True
+    )
