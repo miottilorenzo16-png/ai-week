@@ -57,10 +57,19 @@ def kalman_hedge_ratio(
     states, _ = model.filter(y)
     return pd.DataFrame(states, index=logp.index, columns=["intercept", "hedge_ratio"])
 
-def dynamic_spread(prices: pd.DataFrame, state: pd.DataFrame) -> pd.Series:
-    """Calculate residuals with the time-varying Kalman parameters."""
+def dynamic_spread(
+    prices: pd.DataFrame,
+    state: pd.DataFrame,
+    dependent: str = PAIR_TICKERS[0],
+    independent: str = PAIR_TICKERS[1],
+) -> pd.Series:
+    """Calculate residuals with time-varying Kalman parameters for a ticker pair."""
     frame = prices.join(state, how="inner")
-    result = np.log(frame[PAIR_TICKERS[0]]) - frame["intercept"] - frame["hedge_ratio"] * np.log(frame[PAIR_TICKERS[1]])
+    result = (
+        np.log(frame[dependent])
+        - frame["intercept"]
+        - frame["hedge_ratio"] * np.log(frame[independent])
+    )
     return result.rename("dynamic_spread")
 
 
