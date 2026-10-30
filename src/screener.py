@@ -81,11 +81,14 @@ def fetch_universe_data(tickers, start_date):
     return close
 
 
-def scan_cointegrated_pairs(prices, p_value_threshold=0.05):
-    """Find price pairs passing the Engle-Granger cointegration test.
+def scan_cointegrated_pairs(
+    prices, p_value_threshold=0.05, progress_callback=None
+):
+    """Find cointegrated pairs and optionally report scan progress.
 
     Test statistics and hedge ratios use natural-log prices. The beta is the
     OLS slope from regressing ticker1 log prices on ticker2 log prices.
+    progress_callback, when provided, is called with a fraction from 0 to 1.
     """
     if not isinstance(prices, pd.DataFrame):
         raise TypeError("prices must be a pandas DataFrame.")
@@ -94,41 +97,47 @@ def scan_cointegrated_pairs(prices, p_value_threshold=0.05):
     if not 0 < p_value_threshold < 1:
         raise ValueError("p_value_threshold must be between 0 and 1.")
 
+    pairs = list(itertools.combinations(prices.columns, 2))
     results = []
-    for ticker1, ticker2 in itertools.combinations(prices.columns, 2):
-        pair_prices = prices[[ticker1, ticker2]].replace(
-            [np.inf, -np.inf], np.nan
-        ).dropna()
-        if pair_prices.empty or (pair_prices <= 0).any().any():
-            continue
+    total_pairs = len(pairs)
 
-        log_price1 = np.log(pair_prices[ticker1].astype(float))
-        log_price2 = np.log(pair_prices[ticker2].astype(float))
-        if log_price1.nunique() < 2 or log_price2.nunique() < 2:
-            continue
-
+    for pair_number, (ticker1, ticker2) in enumerate(pairs, start=1):
         try:
-            test_statistic, p_value, _ = ts.coint(log_price1, log_price2)
-        except (ValueError, np.linalg.LinAlgError):
-            continue
+            pair_prices = prices[[ticker1, ticker2]].replace(
+                [np.inf, -np.inf], np.nan
+            ).dropna()
+            if pair_prices.empty or (pair_prices <= 0).any().any():
+                continue
 
-        if np.isfinite(p_value) and p_value < p_value_threshold:
-            beta = float(np.polyfit(log_price2, log_price1, 1)[0])
-            results.append(
-                {
-                    "ticker1": ticker1,
-                    "ticker2": ticker2,
-                    "p_value": float(p_value),
-                    "test_statistic": float(test_statistic),
-                    "beta": beta,
-                }
-            )
+            log_price1 = np.log(pair_prices[ticker1].astype(float))
+            log_price2 = np.log(pair_prices[ticker2].astype(float))
+            if log_price1.nunique() < 2 or log_price2.nunique() < 2:
+                continue
+
+            try:
+                test_statistic, p_value, _ = ts.coint(log_price1, log_price2)
+            except (ValueError, np.linalg.LinAlgError):
+                continue
+
+            if np.isfinite(p_value) and p_value < p_value_threshold:
+                beta = float(np.polyfit(log_price2, log_price1, 1)[0])
+                results.append(
+                    {
+                        "ticker1": ticker1,
+                        "ticker2": ticker2,
+                        "p_value": float(p_value),
+                        "test_statistic": float(test_statistic),
+                        "beta": beta,
+                    }
+                )
+        finally:
+            if progress_callback is not None and total_pairs:
+                progress_callback(pair_number / total_pairs)
 
     columns = ["ticker1", "ticker2", "p_value", "test_statistic", "beta"]
     return pd.DataFrame(results, columns=columns).sort_values(
         "p_value", ascending=True, ignore_index=True
     )
-
 
 
 if __name__ == "__main__":
